@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+
 import time
 import csv
 import copy
@@ -110,7 +109,8 @@ def main():
     # clocX, clocY = 0, 0
 
     ################################
-    detect_mode = True
+    detect_mode = 1
+    what_mode = 'None'
 
     while True:
         left_id = right_id = -1
@@ -205,13 +205,23 @@ def main():
         if left_id + right_id > -2:
             if time.time() - presstime > 1:
                 print(left_id, right_id)
-                if detect_mode:
+                if left_id == 1 and right_id == 1:
+                    print('change mode')
+                    detect_mode = (detect_mode+1) %3
+                    # if detect_mode ==0:what_mode = 'Rest'
+                    # if detect_mode ==1:what_mode = 'Keyboard'
+                    # if detect_mode ==2:what_mode = 'Mouse'
+                    print(detect_mode)
+                    print(f'now mode is {what_mode}')
+
+                if detect_mode == 1:
                     if left_id == 0 and right_id == -1: pyautogui.press('left');print('left')
                     if left_id == -1 and right_id == 0: pyautogui.press('right');print('right')
                     if left_id == 0 and right_id == 0: pyautogui.press('space');print('space')
-                if left_id == 1 and right_id == 1:
-                    print('change mode')
-                    detect_mode = not detect_mode
+
+                if detect_mode ==2:
+                    print('mouse')
+
 
                 presstime = time.time()
         # if hand_sign_id == 2:  # 指差しサイン
