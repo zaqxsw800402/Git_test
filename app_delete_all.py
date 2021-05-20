@@ -99,15 +99,19 @@ def main():
 
     #  ########################################################################
     mode = 0
-    # control mouse & keyboarkd
-    wScr, hScr = pyautogui.size()
     presstime = time.time()
-    frameR = 50
-    smoothening = 7
-    plocX, plocY = 0, 0
-    clocX, clocY = 0, 0
+
+    #  #######################################################################
+    # control mouse & keyboarkd
+    # wScr, hScr = pyautogui.size()
+    # frameR = 50
+    # smoothening = 7
+    # plocX, plocY = 0, 0
+    # clocX, clocY = 0, 0
+
     ################################
     detect_mode = True
+
     while True:
         left_id = right_id = -1
 
@@ -202,9 +206,9 @@ def main():
             if time.time() - presstime > 1:
                 print(left_id, right_id)
                 if detect_mode:
-                    if left_id == 0 and right_id == -1:pyautogui.press('left');print('left')
-                    if left_id == -1 and right_id == 0 :pyautogui.press('right');print('right')
-                    if left_id == 0 and right_id == 0:pyautogui.press('space');print('space')
+                    if left_id == 0 and right_id == -1: pyautogui.press('left');print('left')
+                    if left_id == -1 and right_id == 0: pyautogui.press('right');print('right')
+                    if left_id == 0 and right_id == 0: pyautogui.press('space');print('space')
                 if left_id == 1 and right_id == 1:
                     print('change mode')
                     detect_mode = not detect_mode
