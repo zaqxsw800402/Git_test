@@ -61,7 +61,8 @@ def main():
     # モデルロード #############################################################
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
-        static_image_mode=use_static_image_mode,
+        # static_image_mode=use_static_image_mode,
+        static_image_mode=False,
         max_num_hands=2,
         min_detection_confidence=min_detection_confidence,
         min_tracking_confidence=min_tracking_confidence,
@@ -101,16 +102,17 @@ def main():
     presstime = time.time()
 
     #  #######################################################################
-    # control mouse & keyboarkd
-    # wScr, hScr = pyautogui.size()
-    # frameR = 50
-    # smoothening = 7
-    # plocX, plocY = 0, 0
-    # clocX, clocY = 0, 0
+    # control mouse
+    wScr, hScr = pyautogui.size()
+    frameR = 100
+    smoothening = 7
+    plocX, plocY = 0, 0
+    clocX, clocY = 0, 0
 
     ################################
     detect_mode = 1
     what_mode = 'None'
+    landmark_list = 0
 
     while True:
         left_id = right_id = -1
@@ -159,6 +161,10 @@ def main():
 
                 # ハンドサイン分類d
                 hand_sign_id = keypoint_classifier(pre_processed_landmark_list)
+                # if hand_sign_id == 2:  # 指差しサイン
+                #     point_history.append(landmark_list[8])  # 人差指座標
+                # else:
+                #     point_history.append([0, 0])
 
                 if handedness.classification[0].label[0:] == 'Left':
                     left_id = hand_sign_id
@@ -191,60 +197,70 @@ def main():
                 )
 
 
+
+
+
         else:
             point_history.append([0, 0])
 
         # debug_image = draw_point_history(debug_image, point_history)
         debug_image = draw_info(debug_image, fps, mode, number)
+
         '''
-        paper=0
-        stone=1
-        finger=2
-        three=3
+        hand_id:
+            default=-1
+            paper=0
+            stone=1
+            finger=2
+            three=3
+            
+        detect_mode:
+            0 rest mode
+            1 keyboard mode
+            2 mouse mode
         '''
+        # x1, y1 = landmark_list[8][0], landmark_list[8][1]
+
         if left_id + right_id > -2:
             if time.time() - presstime > 1:
-                print(left_id, right_id)
+                # print(left_id, right_id)
+
                 if left_id == 1 and right_id == 1:
                     print('change mode')
                     detect_mode = (detect_mode+1) %3
-                    # if detect_mode ==0:what_mode = 'Rest'
-                    # if detect_mode ==1:what_mode = 'Keyboard'
-                    # if detect_mode ==2:what_mode = 'Mouse'
-                    print(detect_mode)
+                    if detect_mode ==0:what_mode = 'Rest'
+                    if detect_mode ==1:what_mode = 'Keyboard'
+                    if detect_mode ==2:what_mode = 'Mouse'
                     print(f'now mode is {what_mode}')
+                    presstime = time.time()+1
 
-                if detect_mode == 1:
+                elif left_id == 1 and right_id == 0:
+                    print(f'now mode is {what_mode}')
+                    presstime = time.time()
+
+                elif detect_mode == 1:
                     if left_id == 0 and right_id == -1: pyautogui.press('left');print('left')
                     if left_id == -1 and right_id == 0: pyautogui.press('right');print('right')
                     if left_id == 0 and right_id == 0: pyautogui.press('space');print('space')
+                    presstime = time.time()
 
-                if detect_mode ==2:
-                    print('mouse')
+                elif detect_mode ==2:
+                    x1, y1 = landmark_list[8][0], landmark_list[8][1]
+                    x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
+                    y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
+                    # 6. Smoothen Values
+                    clocX = plocX + (x3 - plocX) / smoothening
+                    clocY = plocY + (y3 - plocY) / smoothening
+
+                    # 7. Move Mouse
+                    # pyautogui.moveTo(wScr - clocX, clocY)
+                    pyautogui.moveTo(clocX, clocY)
+                    cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
+                    plocX, plocY = clocX, clocY
 
 
-                presstime = time.time()
-        # if hand_sign_id == 2:  # 指差しサイン
-        #     point_history.append(landmark_list[8])  # 人差指座標
-        # else:
-        #     point_history.append([0, 0])
 
-        # control mouse and keyboard ##########################
-        #  #5. Convert Coordinates
-        # x1, y1 = landmark_list[8][0],landmark_list[8][1]
-        #
-        # x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
-        # y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
-        # # 6. Smoothen Values
-        # clocX = plocX + (x3 - plocX) / smoothening
-        # clocY = plocY + (y3 - plocY) / smoothening
-        #
-        # # 7. Move Mouse
-        # # pyautogui.moveTo(wScr - clocX, clocY)
-        # pyautogui.moveTo(clocX, clocY)
-        # cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
-        # plocX, plocY = clocX, clocY
-        # 画面反映 #############################################################
+
         cv.imshow('Hand Gesture Recognition', debug_image)
 
     cap.release()
