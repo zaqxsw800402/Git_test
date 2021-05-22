@@ -60,8 +60,8 @@ def main():
     # モデルロード #############################################################
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
-        # static_image_mode=use_static_image_mode,
-        static_image_mode=False,
+        static_image_mode=use_static_image_mode,
+        # static_image_mode=False,
         max_num_hands=2,
         min_detection_confidence=min_detection_confidence,
         min_tracking_confidence=min_tracking_confidence,
@@ -110,22 +110,28 @@ def main():
 
     ################################
     detect_mode = 1
-    what_mode = 'None'
+    what_mode = 'keyboard'
     landmark_list = 0
 
     time.sleep(0.5)
     command_list = []
     keepadd = True
+
     while keepadd:
+        print('number must be integer and in 1-3')
+        print('hand_id: stone=1,finger=2,three=3')
+        print('if only want use one hand to control, choose one of left or right hand to -1')
+
         l_chosed = pick_number('left')
         r_chosed = pick_number('right')
         com_chosed = pick_command()
-        command_list.append([l_chosed,r_chosed,com_chosed])
+        command_list.append([l_chosed, r_chosed, com_chosed])
         print(command_list)
-        # askkeep = input('keep add (y/n)')
         keepadd = True if input('keep add (y/n)') == 'y' else False
 
     print(f'you have chosen\n{command_list}')
+    print('hand_id: paper=0, stone=1,finger=2,three=3')
+    print('change mode use 0')
 
     while True:
         left_id = right_id = -1
@@ -263,7 +269,8 @@ def main():
                     # control_keyboard(left_id, 1, right_id, 1, 'space')
                     # control_keyboard(left_id, 2, right_id, 2, 'space')
                     for control_index in command_list:
-                        control_keyboard(left_id, control_index[0], right_id, control_index[1], control_index[2])
+                        control_keyboard(left_id, control_index[0], right_id, control_index[1], control_index[2],
+                                         keyboard_TF=False, print_TF=True)
                     presstime = time.time()
 
                 # control mouse
@@ -648,10 +655,19 @@ def draw_info(image, fps, mode, number):
     return image
 
 
-def control_keyboard(left_id, select_left_id, right_id, select_right_id, command):
+def control_keyboard(left_id, select_left_id, right_id, select_right_id, command, keyboard_TF=True, print_TF=True):
+    if select_left_id == -1 or select_right_id == -1:
+        if left_id == select_left_id or left_id == select_right_id \
+                or right_id == select_left_id or right_id == select_right_id:
+            if keyboard_TF:
+                pyautogui.press(command)
+            if print_TF:
+                print(command)
     if left_id == select_left_id and right_id == select_right_id:
-        # pyautogui.press(command)
-        print(command)
+        if keyboard_TF:
+            pyautogui.press(command)
+        if print_TF:
+            print(command)
 
 
 def pick_gesture_command():
@@ -667,7 +683,7 @@ def pick_number(inputstring):
         try:
             number = input(f'{inputstring} :')
             number = int(number)
-            if number < -1 or number > 3:
+            if number < -1 or number > 3 or number ==0:
                 raise Exception('number is not in range')
         except:
             print('choose again')
