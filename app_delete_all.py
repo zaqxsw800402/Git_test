@@ -1,4 +1,3 @@
-
 import time
 import csv
 import copy
@@ -114,6 +113,20 @@ def main():
     what_mode = 'None'
     landmark_list = 0
 
+    time.sleep(0.5)
+    command_list = []
+    keepadd = True
+    while keepadd:
+        l_chosed = pick_number('left')
+        r_chosed = pick_number('right')
+        com_chosed = pick_command()
+        command_list.append([l_chosed,r_chosed,com_chosed])
+        print(command_list)
+        # askkeep = input('keep add (y/n)')
+        keepadd = True if input('keep add (y/n)') == 'y' else False
+
+    print(f'you have chosen\n{command_list}')
+
     while True:
         left_id = right_id = -1
 
@@ -187,7 +200,7 @@ def main():
 
                 # 描画
                 debug_image = draw_bounding_rect(use_brect, debug_image, brect)
-                debug_image = draw_landmarks(debug_image, landmark_list)
+                # debug_image = draw_landmarks(debug_image, landmark_list)
                 debug_image = draw_info_text(
                     debug_image,
                     brect,
@@ -225,41 +238,49 @@ def main():
             if time.time() - presstime > 1:
                 # print(left_id, right_id)
 
-                if left_id == 1 and right_id == 1:
+                # change mode
+                if left_id == 0 and right_id == 0:
                     print('change mode')
-                    detect_mode = (detect_mode+1) %3
-                    if detect_mode ==0:what_mode = 'Rest'
-                    if detect_mode ==1:what_mode = 'Keyboard'
-                    if detect_mode ==2:what_mode = 'Mouse'
+                    detect_mode = (detect_mode + 1) % 3
+                    if detect_mode == 0: what_mode = 'Rest'
+                    if detect_mode == 1: what_mode = 'Keyboard'
+                    if detect_mode == 2: what_mode = 'Mouse'
                     print(f'now mode is {what_mode}')
-                    presstime = time.time()+1
+                    presstime = time.time() + 1
 
+                # check mode
                 elif left_id == 1 and right_id == 0:
                     print(f'now mode is {what_mode}')
                     presstime = time.time()
 
+                # control keyboard
                 elif detect_mode == 1:
-                    if left_id == 0 and right_id == -1: pyautogui.press('left');print('left')
-                    if left_id == -1 and right_id == 0: pyautogui.press('right');print('right')
-                    if left_id == 0 and right_id == 0: pyautogui.press('space');print('space')
+                    # # if left_id == 0 and right_id == -1: pyautogui.press('left');print('left')
+                    # control_keyboard(left_id, 0, right_id, -1, 'left')
+                    # # if left_id == -1 and right_id == 0: pyautogui.press('right');print('right')
+                    # control_keyboard(left_id, -1, right_id, 0, 'right')
+                    # # # if left_id == 1 and right_id == 1: pyautogui.press('space');print('space')
+                    # control_keyboard(left_id, 1, right_id, 1, 'space')
+                    # control_keyboard(left_id, 2, right_id, 2, 'space')
+                    for control_index in command_list:
+                        control_keyboard(left_id, control_index[0], right_id, control_index[1], control_index[2])
                     presstime = time.time()
 
-                elif detect_mode ==2:
-                    x1, y1 = landmark_list[8][0], landmark_list[8][1]
-                    x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
-                    y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
-                    # 6. Smoothen Values
-                    clocX = plocX + (x3 - plocX) / smoothening
-                    clocY = plocY + (y3 - plocY) / smoothening
+                # control mouse
+                elif detect_mode == 2:
+                    if left_id == 2 or right_id == 2:
+                        x1, y1 = landmark_list[8][0], landmark_list[8][1]
+                        x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
+                        y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
+                        # 6. Smoothen Values
+                        clocX = plocX + (x3 - plocX) / smoothening
+                        clocY = plocY + (y3 - plocY) / smoothening
 
-                    # 7. Move Mouse
-                    # pyautogui.moveTo(wScr - clocX, clocY)
-                    pyautogui.moveTo(clocX, clocY)
-                    cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
-                    plocX, plocY = clocX, clocY
-
-
-
+                        # 7. Move Mouse
+                        # pyautogui.moveTo(wScr - clocX, clocY)
+                        pyautogui.moveTo(clocX, clocY)
+                        cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
+                        plocX, plocY = clocX, clocY
 
         cv.imshow('Hand Gesture Recognition', debug_image)
 
@@ -625,6 +646,74 @@ def draw_info(image, fps, mode, number):
                        cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1,
                        cv.LINE_AA)
     return image
+
+
+def control_keyboard(left_id, select_left_id, right_id, select_right_id, command):
+    if left_id == select_left_id and right_id == select_right_id:
+        # pyautogui.press(command)
+        print(command)
+
+
+def pick_gesture_command():
+    left_number = input('left gesture number :')
+    right_number = input('right gesture number :')
+    command = input('what command :')
+    return int(left_number), int(right_number), command
+
+
+def pick_number(inputstring):
+    keepask = True
+    while keepask:
+        try:
+            number = input(f'{inputstring} :')
+            number = int(number)
+            if number < -1 or number > 3:
+                raise Exception('number is not in range')
+        except:
+            print('choose again')
+
+        else:
+            keepask = False
+            # print('choosing nicely')
+    return number
+
+
+def pick_command(inputstring='what command'):
+    keepask = True
+    while keepask:
+        try:
+            com = input(f'{inputstring} :')
+            com_list = ['\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', "'", '(',
+                        ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7',
+                        '8', '9', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`',
+                        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
+                        'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~',
+                        'accept', 'add', 'alt', 'altleft', 'altright', 'apps', 'backspace',
+                        'browserback', 'browserfavorites', 'browserforward', 'browserhome',
+                        'browserrefresh', 'browsersearch', 'browserstop', 'capslock', 'clear',
+                        'convert', 'ctrl', 'ctrlleft', 'ctrlright', 'decimal', 'del', 'delete',
+                        'divide', 'down', 'end', 'enter', 'esc', 'escape', 'execute', 'f1', 'f10',
+                        'f11', 'f12', 'f13', 'f14', 'f15', 'f16', 'f17', 'f18', 'f19', 'f2', 'f20',
+                        'f21', 'f22', 'f23', 'f24', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9',
+                        'final', 'fn', 'hanguel', 'hangul', 'hanja', 'help', 'home', 'insert', 'junja',
+                        'kana', 'kanji', 'launchapp1', 'launchapp2', 'launchmail',
+                        'launchmediaselect', 'left', 'modechange', 'multiply', 'nexttrack',
+                        'nonconvert', 'num0', 'num1', 'num2', 'num3', 'num4', 'num5', 'num6',
+                        'num7', 'num8', 'num9', 'numlock', 'pagedown', 'pageup', 'pause', 'pgdn',
+                        'pgup', 'playpause', 'prevtrack', 'print', 'printscreen', 'prntscrn',
+                        'prtsc', 'prtscr', 'return', 'right', 'scrolllock', 'select', 'separator',
+                        'shift', 'shiftleft', 'shiftright', 'sleep', 'space', 'stop', 'subtract', 'tab',
+                        'up', 'volumedown', 'volumemute', 'volumeup', 'win', 'winleft', 'winright', 'yen',
+                        'command', 'option', 'optionleft', 'optionright']
+            if com not in com_list:
+                raise Exception('number is not in range')
+        except:
+            print('choose again')
+
+        else:
+            keepask = False
+            print('choosing nicely')
+    return com
 
 
 if __name__ == '__main__':
