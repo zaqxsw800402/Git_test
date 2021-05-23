@@ -67,7 +67,7 @@ def main():
     cvFpsCalc = CvFpsCalc(buffer_len=10)
 
     # 座標履歴 #################################################################
-    history_length = 8
+    history_length = 16  #time_steps
     point_history = deque(maxlen=history_length)
 
     # フィンガージェスチャー履歴 ################################################
@@ -75,6 +75,9 @@ def main():
 
     #  ########################################################################
     mode = 0
+    i = 0
+    global logging_times
+    log = logging()
 
     while True:
 
@@ -84,6 +87,9 @@ def main():
         key = cv.waitKey(10)
         if key == 27:  # ESC
             break
+        if key == ord('b'):
+            log.times = 0
+            print('log.times now is 0')
         number, mode = select_mode(key, mode)
 
         # カメラキャプチャ #####################################################
@@ -116,11 +122,15 @@ def main():
 
                 # pre_processed_point_history_list = pre_process_point_history(
                 #     debug_image, point_history)
-                point_history.append(pre_processed_landmark_list)
+                if i%3 ==0:
+                    point_history.append(pre_processed_landmark_list)
+                    # print(i)
+                    logging_csv(number, mode, pre_processed_landmark_list,
+                                point_history, i, log)
 
                 # 学習データ保存
-                logging_csv(number, mode, pre_processed_landmark_list,
-                            point_history, LorRhands)
+                # logging_csv(number, mode, pre_processed_landmark_list,
+                #             point_history, i)
 
                 # logging_csv(number, mode, pre_processed_landmark_list,
                 #             pre_processed_point_history_list,LorRhands)
@@ -135,10 +145,12 @@ def main():
                 #     keypoint_classifier_labels[hand_sign_id],
                 #     point_history_classifier_labels[most_common_fg_id[0][0]],
                 # )
-        else:
-            point_history.append(np.zeros(shape=(1, 44)))
+        # else:
+        #     point_history.append(np.zeros(shape=(1, 44)))
 
+        i += 1
         debug_image = draw_info(debug_image, fps, mode, number)
+
 
         cv.imshow('Hand Gesture Recognition', debug_image)
 
@@ -156,6 +168,7 @@ def select_mode(key, mode):
         mode = 1
     if key == 104:  # h
         mode = 2
+
     return number, mode
 
 
@@ -242,25 +255,50 @@ def pre_process_point_history(image, point_history):
 
     return temp_point_history
 
+class logging:
+    def __init__(self, times=0):
+        self.times = times
+    def tadd(self):
+        self.times += 1
 
-def logging_csv(number, mode, landmark_list, point_history_list, LorRhands):
+def logging_csv(number, mode, landmark_list, point_history_list, i, log):
+
     if mode == 0:
         pass
-    if mode == 1 and (0 <= number <= 9):
-        csv_path = 'model/keypoint_classifier/keypoint_left.csv' if LorRhands == 'Left' else \
-            'model/keypoint_classifier/keypoint_right.csv'
+    # if mode == 1 and (0 <= number <= 9):
+    #     csv_path = 'model/keypoint_classifier/keypoint_left.csv' if LorRhands == 'Left' else \
+    #         'model/keypoint_classifier/keypoint_right.csv'
+    #
+    #     with open(csv_path, 'a', newline="") as f:
+    #         writer = csv.writer(f)
+    #         writer.writerow([number, *landmark_list])
+    #         print('logging success')
+    #         print(i)
+    if log.times < 60:
+        if mode == 2 and (0 <= number <= 9):
+            csv_path = 'model/point_history_classifier/point_history_test.csv'
 
-        with open(csv_path, 'a', newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([number, *landmark_list])
-            print('logging success')
+            with open(csv_path, 'a', newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([number, *landmark_list])
+                print('logging success')
+                print(i)
 
-    if mode == 2 and (0 <= number <= 9):
-        csv_path = 'model/point_history_classifier/point_history_test.csv'
-        with open(csv_path, 'a', newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([number, *point_history_list])
-            print('logging success')
+            print(log.times)
+            log.tadd()
+
+    else: print('logging_times > 20')
+
+
+    #
+    # if mode == 2 and (0 <= number <= 9):
+    #     if len(point_history_list) == 16:
+    #         csv_path = 'model/point_history_classifier/point_history_test.csv'
+    #         with open(csv_path, 'a', newline="") as f:
+    #             writer = csv.writer(f)
+    #             writer.writerow([number, *point_history_list])
+    #             print('logging success')
+                # print(i)
     return
 
 
@@ -511,4 +549,5 @@ def draw_info(image, fps, mode, number):
 
 
 if __name__ == '__main__':
+
     main()
