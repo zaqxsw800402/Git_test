@@ -3,6 +3,8 @@ import csv
 import copy
 import argparse
 import itertools
+import time
+
 from collections import Counter
 from collections import deque
 
@@ -67,7 +69,7 @@ def main():
     cvFpsCalc = CvFpsCalc(buffer_len=10)
 
     # 座標履歴 #################################################################
-    history_length = 16  #time_steps
+    history_length = 16  # time_steps
     point_history = deque(maxlen=history_length)
 
     # フィンガージェスチャー履歴 ################################################
@@ -76,9 +78,10 @@ def main():
     #  ########################################################################
     mode = 0
     i = 0
-    global logging_times
     log = logging()
-
+    # number = -1
+    time.sleep(0.5)
+    number = int(input('pick label number'))
     while True:
 
         fps = cvFpsCalc.get()
@@ -90,7 +93,10 @@ def main():
         if key == ord('b'):
             log.times = 0
             print('log.times now is 0')
-        number, mode = select_mode(key, mode)
+        if key == ord('p'):
+            number = int(input('pick label number'))
+
+        mode = select_mode(key, mode)
 
         # カメラキャプチャ #####################################################
         ret, image = cap.read()
@@ -111,7 +117,7 @@ def main():
             for hand_landmarks, handedness in zip(results.multi_hand_landmarks,
                                                   results.multi_handedness):
                 # 外接矩形の計算
-                LorRhands = handedness.classification[0].label[0:]
+                # LorRhands = handedness.classification[0].label[0:]
                 brect = calc_bounding_rect(debug_image, hand_landmarks)
                 # ランドマークの計算
                 landmark_list = calc_landmark_list(debug_image, hand_landmarks)
@@ -120,20 +126,19 @@ def main():
                 pre_processed_landmark_list = pre_process_landmark(
                     landmark_list)
 
-                # pre_processed_point_history_list = pre_process_point_history(
-                #     debug_image, point_history)
-                if i%3 ==0:
+                pre_processed_point_history_list = pre_process_point_history(
+                    debug_image, point_history)
+                if i % 2 == 0 and len(results.multi_hand_landmarks) == 1:
                     point_history.append(pre_processed_landmark_list)
                     # print(i)
-                    logging_csv(number, mode, pre_processed_landmark_list,
-                                point_history, i, log)
+                    logging_csv(number, mode, key, pre_processed_landmark_list,
+                                pre_processed_point_history_list, log, 20)
 
+                # if len(results.multi_hand_landmarks) == 2:
+                #     print(2)
                 # 学習データ保存
                 # logging_csv(number, mode, pre_processed_landmark_list,
                 #             point_history, i)
-
-                # logging_csv(number, mode, pre_processed_landmark_list,
-                #             pre_processed_point_history_list,LorRhands)
 
                 debug_image = draw_bounding_rect(use_brect, debug_image, brect)
                 debug_image = draw_landmarks(debug_image, landmark_list)
@@ -149,8 +154,8 @@ def main():
         #     point_history.append(np.zeros(shape=(1, 44)))
 
         i += 1
+        if i == 100: i = 0
         debug_image = draw_info(debug_image, fps, mode, number)
-
 
         cv.imshow('Hand Gesture Recognition', debug_image)
 
@@ -159,9 +164,9 @@ def main():
 
 
 def select_mode(key, mode):
-    number = -1
-    if 48 <= key <= 57:  # 0 ~ 9
-        number = key - 48
+    # number = -1
+    # if 48 <= key <= 57:  # 0 ~ 9
+    #     number = key - 48
     if key == 110:  # n
         mode = 0
     if key == 107:  # k
@@ -169,7 +174,8 @@ def select_mode(key, mode):
     if key == 104:  # h
         mode = 2
 
-    return number, mode
+
+    return mode
 
 
 def calc_bounding_rect(image, landmarks):
@@ -237,17 +243,24 @@ def pre_process_point_history(image, point_history):
     image_width, image_height = image.shape[1], image.shape[0]
 
     temp_point_history = copy.deepcopy(point_history)
+    base_x, base_y = 0, 0
+    for index, landmark_point in enumerate(temp_point_history):
+        if index == 0:
+            base_x, base_y = landmark_point[0], landmark_point[1]
+
+        temp_point_history[index][0] = (temp_point_history[index][0] - base_x) / image_width
+        temp_point_history[index][1] = (temp_point_history[index][1] - base_y) / image_height
 
     # 相対座標に変換
-    base_x, base_y = 0, 0
-    for index, point in enumerate(temp_point_history):
-        if index == 0:
-            base_x, base_y = point[0], point[1]
-
-        temp_point_history[index][0] = (temp_point_history[index][0] -
-                                        base_x) / image_width
-        temp_point_history[index][1] = (temp_point_history[index][1] -
-                                        base_y) / image_height
+    # base_x, base_y = 0, 0
+    # for index, point in enumerate(temp_point_history):
+    #     if index == 0:
+    #         base_x, base_y = point[0], point[1]
+    #
+    #     temp_point_history[index][0] = (temp_point_history[index][0] -
+    #                                     base_x) / image_width
+    #     temp_point_history[index][1] = (temp_point_history[index][1] -
+    #                                     base_y) / image_height
 
     # 1次元リストに変換
     temp_point_history = list(
@@ -255,40 +268,46 @@ def pre_process_point_history(image, point_history):
 
     return temp_point_history
 
+
 class logging:
     def __init__(self, times=0):
         self.times = times
+
     def tadd(self):
         self.times += 1
 
-def logging_csv(number, mode, landmark_list, point_history_list, i, log):
 
+def logging_csv(number, mode, save, landmark_list, point_history_list, log, times):
     if mode == 0:
         pass
-    # if mode == 1 and (0 <= number <= 9):
-    #     csv_path = 'model/keypoint_classifier/keypoint_left.csv' if LorRhands == 'Left' else \
-    #         'model/keypoint_classifier/keypoint_right.csv'
-    #
-    #     with open(csv_path, 'a', newline="") as f:
-    #         writer = csv.writer(f)
-    #         writer.writerow([number, *landmark_list])
-    #         print('logging success')
-    #         print(i)
-    if log.times < 60:
-        if mode == 2 and (0 <= number <= 9):
-            csv_path = 'model/point_history_classifier/point_history_test.csv'
+
+    if log.times < times:
+        # if mode == 1 and (0 <= number <= 9 and log.times < times) :
+        if mode == 1 and log.times < times and save == ord('s'):
+            csv_path = 'model/keypoint_classifier/keypoint_test.csv'
 
             with open(csv_path, 'a', newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([number, *landmark_list])
-                print('logging success')
-                print(i)
 
+            print('logging success')
             print(log.times)
             log.tadd()
 
-    else: print('logging_times > 20')
+        # if mode == 2 and (0 <= number <= 9) :
+        if mode == 2 and save == ord('s'):
+            csv_path = 'model/point_history_classifier/point_history_test.csv'
 
+            with open(csv_path, 'a', newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([number, *point_history_list])
+
+            print('logging success')
+            print(log.times)
+            log.tadd()
+
+    else:
+        print(f'logging_times > {times}, press b to reset logging_times')
 
     #
     # if mode == 2 and (0 <= number <= 9):
@@ -298,7 +317,7 @@ def logging_csv(number, mode, landmark_list, point_history_list, i, log):
     #             writer = csv.writer(f)
     #             writer.writerow([number, *point_history_list])
     #             print('logging success')
-                # print(i)
+    # print(i)
     return
 
 
@@ -549,5 +568,4 @@ def draw_info(image, fps, mode, number):
 
 
 if __name__ == '__main__':
-
     main()
