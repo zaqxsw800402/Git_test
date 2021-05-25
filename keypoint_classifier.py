@@ -34,11 +34,17 @@ class KeyPointClassifier(object):
 
         output_details_tensor_index = self.output_details[0]['index']
 
+        
+        
+        
         result = self.interpreter.get_tensor(output_details_tensor_index)
-        # print(f'result {result}')
+        _index = 0
+        for _ in result[:][0]:
+            print(f'id={_index},{_:.2f}', end=' ')
+            _index += 1
 
         result_index = np.argmax(np.squeeze(result))
-        # print(f'result_index {result_index}')
+        print(f'\n Maxprob_id: {result_index}')
 
         if np.squeeze(result)[result_index] < self.score_th:
             result_index = self.invalid_value
