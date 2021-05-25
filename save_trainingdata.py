@@ -132,7 +132,7 @@ def main():
                     point_history.append(pre_processed_landmark_list)
                     # print(i)
                     logging_csv(number, mode, key, pre_processed_landmark_list,
-                                pre_processed_point_history_list, log, 20)
+                                pre_processed_point_history_list, log, 10)
 
                 # if len(results.multi_hand_landmarks) == 2:
                 #     print(2)
