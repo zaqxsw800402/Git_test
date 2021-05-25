@@ -3,6 +3,8 @@ import csv
 import copy
 import argparse
 import itertools
+import os
+
 from collections import Counter
 from collections import deque
 
@@ -90,7 +92,7 @@ def main():
     cvFpsCalc = CvFpsCalc(buffer_len=10)
 
     # 座標履歴 #################################################################
-    history_length = 16
+    history_length = 10
     point_history = deque(maxlen=history_length)
 
     # フィンガージェスチャー履歴 ################################################
@@ -113,10 +115,19 @@ def main():
     what_mode = 'keyboard'
     landmark_list = 0
 
+    ##############################
+    # default_path = 'app_default.csv'
+    # if os.path.isfile(default_path):
+    #     print("檔案存在。")
+    #     with open(default_path, encoding='utf-8-sig') as f:
+    #         control_default = csv.reader(f)
+    #         control_default = [
+    #             row[0] for row in keypoint_classifier_labels
+    #         ]
     time.sleep(0.5)
     command_list = []
-    keepadd = True
-
+    keepadd = False
+    pyautogui.PAUSE = 0
     while keepadd:
         print('number must be integer and in 1-3')
         print('hand_id: stone=1,finger=2,three=3')
@@ -171,9 +182,10 @@ def main():
                 # 相対座標・正規化座標への変換
                 pre_processed_landmark_list = pre_process_landmark(
                     landmark_list)
+                # pre_processed_point_history_list = pre_process_point_history(
+                #     debug_image, point_history)
                 pre_processed_point_history_list = pre_process_point_history(
-                    debug_image, point_history)
-
+                    debug_image, landmark_list)
                 # 学習データ保存
                 logging_csv(number, mode, pre_processed_landmark_list,
                             pre_processed_point_history_list)
@@ -193,34 +205,44 @@ def main():
                 # #################################
 
                 # フィンガージェスチャー分類
+                # finger_gesture_id = 0
+                point_history.append(pre_processed_point_history_list)
+                # print(len(point_history[0]))
+                # point_history_len = len(pre_processed_point_history_list)
+                # if point_history_len == (history_length * 2):
+                #     finger_gesture_id = point_history_classifier(
+                #         pre_processed_point_history_list)
                 finger_gesture_id = 0
-                point_history_len = len(pre_processed_point_history_list)
-                if point_history_len == (history_length * 2):
-                    finger_gesture_id = point_history_classifier(
-                        pre_processed_point_history_list)
+                if len(point_history) == history_length:
+                    # np_point_history=copy.deepcopy(point_history)
+                    # np_point_history = np.reshape(np_point_history, (1, 10, 42))
+                    # print(np_point_history.shape)
 
-                # 直近検出の中で最多のジェスチャーIDを算出
-                finger_gesture_history.append(finger_gesture_id)
-                most_common_fg_id = Counter(
-                    finger_gesture_history).most_common()
+                    finger_gesture_id = point_history_classifier(point_history)
+                    print(finger_gesture_id)
+                #
+                # # 直近検出の中で最多のジェスチャーIDを算出
+                    finger_gesture_history.append(finger_gesture_id)
+                    most_common_fg_id = Counter(
+                        finger_gesture_history).most_common()
+                #
+                # # 描画
+                    debug_image = draw_bounding_rect(use_brect, debug_image, brect)
+                    debug_image = draw_landmarks(debug_image, landmark_list)
+                    debug_image = draw_info_text(
+                        debug_image,
+                        brect,
+                        handedness,
+                        keypoint_classifier_labels[hand_sign_id],
+                        point_history_classifier_labels[most_common_fg_id[0][0]],
+                    )
 
-                # 描画
-                debug_image = draw_bounding_rect(use_brect, debug_image, brect)
-                # debug_image = draw_landmarks(debug_image, landmark_list)
-                debug_image = draw_info_text(
-                    debug_image,
-                    brect,
-                    handedness,
-                    keypoint_classifier_labels[hand_sign_id],
-                    point_history_classifier_labels[most_common_fg_id[0][0]],
-                )
 
 
 
 
-
-        else:
-            point_history.append([0, 0])
+        # else:
+        #     point_history.append([0, 0])
 
         # debug_image = draw_point_history(debug_image, point_history)
         debug_image = draw_info(debug_image, fps, mode, number)
@@ -243,7 +265,6 @@ def main():
         if left_id + right_id > -2:
             if time.time() - presstime > 1:
                 # print(left_id, right_id)
-
                 # change mode
                 if left_id == 0 and right_id == 0:
                     print('change mode')
@@ -261,16 +282,16 @@ def main():
 
                 # control keyboard
                 elif detect_mode == 1:
-                    # # if left_id == 0 and right_id == -1: pyautogui.press('left');print('left')
-                    # control_keyboard(left_id, 0, right_id, -1, 'left')
+                    if left_id == 2 and right_id == 1: pyautogui.press('left');print('left')
+                    control_keyboard(left_id, 2, right_id, 1, 'left', keyboard_TF=False, print_TF=True)
                     # # if left_id == -1 and right_id == 0: pyautogui.press('right');print('right')
                     # control_keyboard(left_id, -1, right_id, 0, 'right')
                     # # # if left_id == 1 and right_id == 1: pyautogui.press('space');print('space')
                     # control_keyboard(left_id, 1, right_id, 1, 'space')
                     # control_keyboard(left_id, 2, right_id, 2, 'space')
-                    for control_index in command_list:
-                        control_keyboard(left_id, control_index[0], right_id, control_index[1], control_index[2],
-                                         keyboard_TF=False, print_TF=True)
+                    # for control_index in command_list:
+                    #     control_keyboard(left_id, control_index[0], right_id, control_index[1], control_index[2],
+                    #                      keyboard_TF=True, print_TF=True)
                     presstime = time.time()
 
                 # control mouse
@@ -683,7 +704,7 @@ def pick_number(inputstring):
         try:
             number = input(f'{inputstring} :')
             number = int(number)
-            if number < -1 or number > 3 or number ==0:
+            if number < -1 or number > 3 or number == 0:
                 raise Exception('number is not in range')
         except:
             print('choose again')
