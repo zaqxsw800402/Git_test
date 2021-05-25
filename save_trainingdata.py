@@ -127,7 +127,7 @@ def main():
                     landmark_list)
 
                 pre_processed_point_history_list = pre_process_point_history(
-                    debug_image, point_history)
+                    debug_image, landmark_list)
                 if i % 2 == 0 and len(results.multi_hand_landmarks) == 1:
                     point_history.append(pre_processed_landmark_list)
                     # print(i)
@@ -243,13 +243,13 @@ def pre_process_point_history(image, point_history):
     image_width, image_height = image.shape[1], image.shape[0]
 
     temp_point_history = copy.deepcopy(point_history)
-    base_x, base_y = 0, 0
+    # base_x, base_y = 0, 0
     for index, landmark_point in enumerate(temp_point_history):
-        if index == 0:
-            base_x, base_y = landmark_point[0], landmark_point[1]
+        # if index == 0:
+            # base_x, base_y = landmark_point[0], landmark_point[1]
 
-        temp_point_history[index][0] = (temp_point_history[index][0] - base_x) / image_width
-        temp_point_history[index][1] = (temp_point_history[index][1] - base_y) / image_height
+        temp_point_history[index][0] = (temp_point_history[index][0]) / image_width
+        temp_point_history[index][1] = (temp_point_history[index][1]) / image_height
 
     # 相対座標に変換
     # base_x, base_y = 0, 0
@@ -296,7 +296,7 @@ def logging_csv(number, mode, save, landmark_list, point_history_list, log, time
 
         # if mode == 2 and (0 <= number <= 9) :
         if mode == 2 and save == ord('s'):
-            csv_path = 'model/point_history_classifier/point_history_test.csv'
+            csv_path = 'model/point_history_classifier/point_history_test_2.csv'
 
             with open(csv_path, 'a', newline="") as f:
                 writer = csv.writer(f)
