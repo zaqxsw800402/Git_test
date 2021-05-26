@@ -131,8 +131,8 @@ def main():
                 if i % 2 == 0 and len(results.multi_hand_landmarks) == 1:
                     point_history.append(pre_processed_landmark_list)
                     # print(i)
-                    logging_csv(number, mode, key, pre_processed_landmark_list,
-                                pre_processed_point_history_list, log, 10)
+                logging_csv(number, mode, key, pre_processed_landmark_list,
+                            pre_processed_point_history_list, log, 100)
 
                 # if len(results.multi_hand_landmarks) == 2:
                 #     print(2)
@@ -276,14 +276,14 @@ class logging:
         self.times += 1
 
 
-def logging_csv(number, mode, save, landmark_list, point_history_list, log, times):
+def logging_csv(number, mode, key, landmark_list, point_history_list, log, times):
     if mode == 0:
         pass
 
     if log.times < times:
         # if mode == 1 and (0 <= number <= 9 and log.times < times) :
-        if mode == 1 and log.times < times and save == ord('s'):
-            csv_path = 'model/keypoint_classifier/keypoint_test.csv'
+        if mode == 1 and log.times < times and key == ord('s'):
+            csv_path = 'model/keypoint_classifier/keypoint_ichih1000.csv'
 
             with open(csv_path, 'a', newline="") as f:
                 writer = csv.writer(f)
@@ -294,7 +294,7 @@ def logging_csv(number, mode, save, landmark_list, point_history_list, log, time
             log.tadd()
 
         # if mode == 2 and (0 <= number <= 9) :
-        if mode == 2 and save == ord('s'):
+        if mode == 2 and key == ord('s'):
             # csv_path = 'model/point_history_classifier/point_history_test_without_minus.csv'
             csv_path = 'model/point_history_classifier/point_history_rotate.csv'
 
