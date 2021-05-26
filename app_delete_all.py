@@ -22,8 +22,10 @@ def get_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--device", type=int, default=0)
-    parser.add_argument("--width", help='cap width', type=int, default=960)
-    parser.add_argument("--height", help='cap height', type=int, default=540)
+    parser.add_argument("--width", help='cap width', type=int, default=640)
+    # parser.add_argument("--width", help='cap width', type=int, default=960)
+    # parser.add_argument("--height", help='cap height', type=int, default=540)
+    parser.add_argument("--height", help='cap height', type=int, default=480)
 
     parser.add_argument('--use_static_image_mode', action='store_true')
     parser.add_argument("--min_detection_confidence",
@@ -69,7 +71,7 @@ def main():
         min_tracking_confidence=min_tracking_confidence,
     )
 
-    keypoint_classifier = KeyPointClassifier()
+    keypoint_classifier = KeyPointClassifier(invalid_value=8, score_th=0.4)
 
     point_history_classifier = PointHistoryClassifier()
 
@@ -144,6 +146,9 @@ def main():
     print('hand_id: paper=0, stone=1,finger=2,three=3')
     print('change mode use 0')
 
+    i = 0
+    finger_gesture_id = 0
+
     while True:
         left_id = right_id = -1
 
@@ -206,27 +211,27 @@ def main():
 
                 # フィンガージェスチャー分類
                 # finger_gesture_id = 0
-                point_history.append(pre_processed_point_history_list)
+                if i % 2 == 0:
+                    point_history.append(pre_processed_point_history_list)
                 # print(len(point_history[0]))
                 # point_history_len = len(pre_processed_point_history_list)
                 # if point_history_len == (history_length * 2):
                 #     finger_gesture_id = point_history_classifier(
                 #         pre_processed_point_history_list)
-                finger_gesture_id = 0
                 if len(point_history) == history_length:
                     # np_point_history=copy.deepcopy(point_history)
                     # np_point_history = np.reshape(np_point_history, (1, 10, 42))
                     # print(np_point_history.shape)
 
                     finger_gesture_id = point_history_classifier(point_history)
-                    print(finger_gesture_id)
-                #
-                # # 直近検出の中で最多のジェスチャーIDを算出
+                    # print(finger_gesture_id)
+                    #
+                    # # 直近検出の中で最多のジェスチャーIDを算出
                     finger_gesture_history.append(finger_gesture_id)
                     most_common_fg_id = Counter(
                         finger_gesture_history).most_common()
-                #
-                # # 描画
+                    #
+                    # # 描画
                     debug_image = draw_bounding_rect(use_brect, debug_image, brect)
                     debug_image = draw_landmarks(debug_image, landmark_list)
                     debug_image = draw_info_text(
@@ -237,9 +242,8 @@ def main():
                         point_history_classifier_labels[most_common_fg_id[0][0]],
                     )
 
-
-
-
+        i += 1
+        if i == 100: i = 0
 
         # else:
         #     point_history.append([0, 0])
@@ -282,33 +286,59 @@ def main():
 
                 # control keyboard
                 elif detect_mode == 1:
-                    if left_id == 2 and right_id == 1: pyautogui.press('left');print('left')
-                    control_keyboard(left_id, 2, right_id, 1, 'left', keyboard_TF=False, print_TF=True)
+                    # if left_id == 2 and right_id == 1: pyautogui.press('left');print('left')
+                    # control_keyboard(left_id, 6, right_id, -1, 'left', keyboard_TF=False, print_TF=True)
+                    # control_keyboard(left_id, 8, right_id, -1, 'left', keyboard_TF=False, print_TF=True)
                     # # if left_id == -1 and right_id == 0: pyautogui.press('right');print('right')
-                    # control_keyboard(left_id, -1, right_id, 0, 'right')
+                    # control_keyboard(left_id, -1, right_id, 2, 'right')
+                    # control_keyboard(left_id, 2, right_id, 2, 'right')
                     # # # if left_id == 1 and right_id == 1: pyautogui.press('space');print('space')
                     # control_keyboard(left_id, 1, right_id, 1, 'space')
-                    # control_keyboard(left_id, 2, right_id, 2, 'space')
+                    # control_keyboard(left_id, 2, right_id, 2, 'space', keyboard_TF=False)
                     # for control_index in command_list:
                     #     control_keyboard(left_id, control_index[0], right_id, control_index[1], control_index[2],
                     #                      keyboard_TF=True, print_TF=True)
                     presstime = time.time()
-
                 # control mouse
-                elif detect_mode == 2:
-                    if left_id == 2 or right_id == 2:
-                        x1, y1 = landmark_list[8][0], landmark_list[8][1]
-                        x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
-                        y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
-                        # 6. Smoothen Values
-                        clocX = plocX + (x3 - plocX) / smoothening
-                        clocY = plocY + (y3 - plocY) / smoothening
+        if detect_mode == 2:
+            if left_id == 1 or right_id == 1:
+                x1, y1 = landmark_list[8][0], landmark_list[8][1]
+                # x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
+                x3 = np.interp(x1, (50, cap_width - 50), (0, wScr))
+                y3 = np.interp(y1, (50, cap_height - 100), (0, hScr))
+                # y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
+                # 6. Smoothen Values
+                clocX = plocX + (x3 - plocX) / smoothening
+                clocY = plocY + (y3 - plocY) / smoothening
 
-                        # 7. Move Mouse
-                        # pyautogui.moveTo(wScr - clocX, clocY)
-                        pyautogui.moveTo(clocX, clocY)
-                        cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
-                        plocX, plocY = clocX, clocY
+                # 7. Move Mouse
+                # pyautogui.moveTo(wScr - clocX, clocY)
+                pyautogui.moveTo(clocX, clocY)
+                cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
+                plocX, plocY = clocX, clocY
+            if time.time() - presstime > 1:
+                if left_id == 4 or right_id == 4:
+                    pyautogui.click()
+                    presstime = time.time()
+        #
+        # cv.rectangle(debug_image, (40, 40), (500, 400),
+        #               (255, 0, 255), 2)
+            # 960, 540
+            cv.rectangle(debug_image, (50, 50), (cap_width - 50, cap_height - 100),
+                          (255, 0, 255), 2)
+            # if left_id == 4 or right_id == 4:
+            #     x1, y1 = landmark_list[8][0], landmark_list[8][1]
+            #     x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
+            #     y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
+            #     # 6. Smoothen Values
+            #     clocX = plocX + (x3 - plocX) / smoothening
+            #     clocY = plocY + (y3 - plocY) / smoothening
+            #
+            #     # 7. Move Mouse
+            #     # pyautogui.moveTo(wScr - clocX, clocY)
+            #     pyautogui.moveTo(clocX, clocY)
+            #     cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
+            #     plocX, plocY = clocX, clocY
 
         cv.imshow('Hand Gesture Recognition', debug_image)
 
@@ -394,6 +424,7 @@ def pre_process_point_history(image, point_history):
     image_width, image_height = image.shape[1], image.shape[0]
 
     temp_point_history = copy.deepcopy(point_history)
+    # temp_point_history = copy.copy(point_history)
 
     # 相対座標に変換
     base_x, base_y = 0, 0
