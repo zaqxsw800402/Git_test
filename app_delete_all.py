@@ -218,19 +218,16 @@ def main():
                 # if point_history_len == (history_length * 2):
                 #     finger_gesture_id = point_history_classifier(
                 #         pre_processed_point_history_list)
-                if len(point_history) == history_length:
-                    # np_point_history=copy.deepcopy(point_history)
-                    # np_point_history = np.reshape(np_point_history, (1, 10, 42))
-                    # print(np_point_history.shape)
 
+                if len(point_history) == history_length:
                     finger_gesture_id = point_history_classifier(point_history)
-                    # print(finger_gesture_id)
-                    #
+                    print(finger_gesture_id)
+
                     # # 直近検出の中で最多のジェスチャーIDを算出
                     finger_gesture_history.append(finger_gesture_id)
                     most_common_fg_id = Counter(
                         finger_gesture_history).most_common()
-                    #
+
                     # # 描画
                     debug_image = draw_bounding_rect(use_brect, debug_image, brect)
                     debug_image = draw_landmarks(debug_image, landmark_list)
@@ -294,7 +291,8 @@ def main():
                     # control_keyboard(left_id, 2, right_id, 2, 'right')
                     # # # if left_id == 1 and right_id == 1: pyautogui.press('space');print('space')
                     # control_keyboard(left_id, 1, right_id, 1, 'space')
-                    # control_keyboard(left_id, 2, right_id, 2, 'space', keyboard_TF=False)
+                    # if hand_sign_id == 2: pyautogui.press('space')
+                    control_keyboard(left_id, 2, right_id, 2, 'space', keyboard_TF=False)
                     # for control_index in command_list:
                     #     control_keyboard(left_id, control_index[0], right_id, control_index[1], control_index[2],
                     #                      keyboard_TF=True, print_TF=True)
@@ -320,12 +318,12 @@ def main():
                 if left_id == 4 or right_id == 4:
                     pyautogui.click()
                     presstime = time.time()
-        #
-        # cv.rectangle(debug_image, (40, 40), (500, 400),
-        #               (255, 0, 255), 2)
+            #
+            # cv.rectangle(debug_image, (40, 40), (500, 400),
+            #               (255, 0, 255), 2)
             # 960, 540
             cv.rectangle(debug_image, (50, 50), (cap_width - 50, cap_height - 100),
-                          (255, 0, 255), 2)
+                         (255, 0, 255), 2)
             # if left_id == 4 or right_id == 4:
             #     x1, y1 = landmark_list[8][0], landmark_list[8][1]
             #     x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
@@ -708,18 +706,23 @@ def draw_info(image, fps, mode, number):
 
 
 def control_keyboard(left_id, select_left_id, right_id, select_right_id, command, keyboard_TF=True, print_TF=True):
-    if select_left_id == -1 or select_right_id == -1:
-        if left_id == select_left_id or left_id == select_right_id \
-                or right_id == select_left_id or right_id == select_right_id:
-            if keyboard_TF:
-                pyautogui.press(command)
-            if print_TF:
-                print(command)
     if left_id == select_left_id and right_id == select_right_id:
         if keyboard_TF:
             pyautogui.press(command)
         if print_TF:
             print(command)
+    elif select_left_id == -1 :
+        if right_id == -1 and left_id == select_right_id:
+            if keyboard_TF:
+                pyautogui.press(command)
+            if print_TF:
+                print(command)
+    elif select_right_id == -1:
+        if left_id == -1 and right_id == select_left_id:
+            if keyboard_TF:
+                pyautogui.press(command)
+            if print_TF:
+                print(command)
 
 
 def pick_gesture_command():
