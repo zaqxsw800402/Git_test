@@ -6,6 +6,7 @@ import argparse
 import itertools
 import os
 import time
+import math
 
 from collections import Counter
 from collections import deque
@@ -18,6 +19,7 @@ import pyautogui
 from utils import CvFpsCalc
 from model import KeyPointClassifier
 from model import PointHistoryClassifier
+from model import MouseClassifier
 
 
 def get_args():
@@ -70,7 +72,8 @@ def main():
         min_tracking_confidence=min_tracking_confidence,
     )
 
-    keypoint_classifier = KeyPointClassifier(invalid_value=8, score_th=0.1)
+    keypoint_classifier = KeyPointClassifier(invalid_value=8, score_th=0.4)
+    mouse_classifier = MouseClassifier(invalid_value=2, score_th=0.4)
 
     point_history_classifier = PointHistoryClassifier()
 
@@ -121,6 +124,7 @@ def main():
     smoothening = 7
     plocX, plocY = 0, 0
     clocX, clocY = 0, 0
+    mousespeed = 1.5
     clicktime = time.time()
 
     # =========  =========
@@ -170,6 +174,8 @@ def main():
 
                 # 靜態手勢資料預測
                 hand_sign_id = keypoint_classifier(pre_processed_landmark_list)
+                mouse_id = mouse_classifier(pre_processed_landmark_list)
+                # print(mouse_id)
                 # if handedness.classification[0].label[0:] == 'Left':
                 #     left_id = left_keypoint_classifier(pre_processed_landmark_list)
                 #
@@ -245,11 +251,12 @@ def main():
             if time.time() - presstime > 1:
                 # print(left_id, right_id)
                 # change mode
-                if left_id == 7 or right_id == 7:
+                if left_id == 3 or right_id == 3:
                     print('change mode')
-                    detect_mode = (detect_mode + 1) % 2
+                    detect_mode = (detect_mode + 1) % 3
                     if detect_mode == 0: what_mode = 'Rest'
                     if detect_mode == 1: what_mode = 'Keyboard'
+                    if detect_mode == 2: what_mode = 'Mouse'
                     print(f'now mode is {what_mode}')
                     presstime = time.time() + 1
 
@@ -257,55 +264,80 @@ def main():
 
                 elif detect_mode == 1:
                     # 靜態手勢控制
-                    control_keyboard(left_id, -1, right_id, 2, 'K', keyboard_TF=True, print_TF=True)
-                    control_keyboard(left_id, -1, right_id, 3, 'F', keyboard_TF=True, print_TF=True)
-                    control_keyboard(left_id, -1, right_id, 0, 'M', keyboard_TF=True, print_TF=True)
-                    control_keyboard(left_id, -1, right_id, 9, 'C', keyboard_TF=True, print_TF=True)
-                    control_keyboard(left_id, -1, right_id, 5, 'up', keyboard_TF=True, print_TF=True)
-                    control_keyboard(left_id, -1, right_id, 6, 'down', keyboard_TF=True, print_TF=True)
+                    control_keyboard(left_id, -1, right_id, 2, 'K', keyboard_TF=True, print_TF=False)
+                    # control_keyboard(left_id, -1, right_id, 3, 'F', keyboard_TF=True, print_TF=True)
+                    # control_keyboard(left_id, -1, right_id, 0, 'M', keyboard_TF=True, print_TF=True)
+                    control_keyboard(left_id, -1, right_id, 9, 'C', keyboard_TF=True, print_TF=False)
+                    control_keyboard(left_id, -1, right_id, 5, 'up', keyboard_TF=True, print_TF=False)
+                    control_keyboard(left_id, -1, right_id, 6, 'down', keyboard_TF=True, print_TF=False)
 
                     # 動態手勢控制
-                    if most_common_fg_id[0][0] in [1, 3]:
-                        if time.time() - presstime > 1:
-                            pyautogui.press('L')
-                            print('快轉10秒(L)')
-
-                    elif most_common_fg_id[0][0] in [2, 4]:
-                        if time.time() - presstime > 1:
-                            pyautogui.press('J')
-                            print('倒轉10秒(J)')
-
+                    # if most_common_fg_id[0][0] in [1, 3]:
+                    #     if time.time() - presstime > 1:
+                    #         pyautogui.press('L')
+                    #         print('快轉10秒(L)')J
+                    #
+                    # elif most_common_fg_id[0][0] in [2, 4]:
+                    #     if time.time() - presstime > 1:
+                    #         pyautogui.press('J')
+                    #         print('倒轉10秒(J)')
 
                     presstime = time.time()
 
-            if detect_mode == 1:
-                if left_id == 1 or right_id == 1:
-                    x1, y1 = landmark_list[8][0], landmark_list[8][1]
-                    x3 = np.interp(x1, (50, cap_width - 50), (0, wScr))
-                    y3 = np.interp(y1, (50, cap_height - 200), (0, hScr))
-
-                    #  優化滑鼠移動
+            if detect_mode == 2:
+                if mouse_id == 0:  # Point gesture
+                    # print(landmark_list[8]) #index finger
+                    # print(landmark_list[12]) #middle finger
+                    x1, y1 = landmark_list[8]
+                    x2, y2 = landmark_list[12]
+                    # cv.rectangle(debug_image, (frameR, frameR), (cap_width - frameR, cap_height - frameR),
+                    #              (255, 0, 255), 2)
+                    cv.rectangle(debug_image, (50, 50), (cap_width - 50, cap_height - 100),
+                                 (255, 0, 255), 2)
+                    # x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
+                    # y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
+                    x3 = np.interp(x1, (50*mousespeed, (cap_width - 50)/mousespeed), (0, wScr))
+                    y3 = np.interp(y1, (50*mousespeed, (cap_height - 50)/mousespeed), (0, hScr))
+                    # print(x3, y3)
+                    # 6. Smoothen Values
                     clocX = plocX + (x3 - plocX) / smoothening
                     clocY = plocY + (y3 - plocY) / smoothening
-
-                    #  移動滑鼠
+                    # 7. Move Mouse
                     pyautogui.moveTo(clocX, clocY)
                     cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
                     plocX, plocY = clocX, clocY
 
-                    # 手指移動範圍
-                    cv.rectangle(debug_image, (50, 50), (cap_width - 50, cap_height - 100),
-                                 (255, 0, 255), 2)
+                if left_id == 2 or right_id == 2:
+                    length, img, lineInfo = findDistance(landmark_list[8], landmark_list[12], debug_image)
+                    # print(length)KKKK
 
-                if left_id == 4 or right_id == 4:
-                    # print(time.time() - presstime)
-                    if time.time() - clicktime > 1:
-                        pyautogui.click()
-                        # print('click')
-                        clicktime = time.time()
+                    # 10. Click mouse if distance short
+                    # print(time.time() - clicktime)
+
+                    if time.time() - clicktime > 0.5:
+                        if length < 40:
+                            cv.circle(img, (lineInfo[4], lineInfo[5]),
+                                      15, (0, 255, 0), cv.FILLED)
+                            pyautogui.click()
+                            print('click')
+                            clicktime = time.time()
 
 
-        # Screen reflection #############################################################
+                        # if length > 70:
+                        #     cv.circle(img, (lineInfo[4], lineInfo[5]),
+                        #               15, (0, 255, 0), cv.FILLED)
+                            # pyautogui.click(clicks=2)
+                            # print('click*2')
+                            # clicktime = time.time()
+
+                if left_id == 5 or right_id == 5:
+                    pyautogui.scroll(30)
+
+                if left_id == 6 or right_id == 6:
+                    pyautogui.scroll(-30)
+
+        cv.putText(debug_image, what_mode, (400, 30), cv.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 4, cv.LINE_AA)
+        # Screen reflection ###################################JL##########################
         cv.imshow('Hand Gesture Recognition', debug_image)
 
     cap.release()
@@ -685,20 +717,21 @@ def pick_command(inputstring='what command'):
             print('choosing nicely')
     return com
 
-# def findDistance(self, p1, p2, img, draw=True):
-#
-#     x1, y1 = self.lmList[p1][1], self.lmList[p1][2]
-#     x2, y2 = self.lmList[p2][1], self.lmList[p2][2]
-#     cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-#
-#     if draw:
-#         cv.circle(img, (x1, y1), 15, (255, 0, 255), cv.FILLED)
-#         cv.circle(img, (x2, y2), 15, (255, 0, 255), cv.FILLED)
-#         cv.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
-#         cv.circle(img, (cx, cy), 15, (255, 0, 255), cv.FILLED)
-#
-#     length = math.hypot(x2 - x1, y2 - y1)
-#     return length, img, [x1, y1, x2, y2, cx, cy]
+
+def findDistance(p1, p2, img, draw=True, r=15, t=3):
+    x1, y1 = p1
+    x2, y2 = p2
+    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+
+    if draw:
+        cv.line(img, (x1, y1), (x2, y2), (255, 0, 255), t)
+        cv.circle(img, (x1, y1), r, (255, 0, 255), cv.FILLED)
+        cv.circle(img, (x2, y2), r, (255, 0, 255), cv.FILLED)
+        cv.circle(img, (cx, cy), r, (0, 0, 255), cv.FILLED)
+        length = math.hypot(x2 - x1, y2 - y1)
+
+    return length, img, [x1, y1, x2, y2, cx, cy]
+
 
 if __name__ == '__main__':
     main()
