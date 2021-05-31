@@ -10,6 +10,9 @@ import math
 
 from collections import Counter
 from collections import deque
+# == 聲音模組 ============================
+from playsound import playsound
+from gtts import gTTS
 
 import cv2 as cv
 import numpy as np
@@ -17,7 +20,10 @@ import mediapipe as mp
 import pyautogui
 
 from utils import CvFpsCalc
-from model import KeyPointClassifier
+
+# models
+from model import KeyPointClassifier_R
+from model import KeyPointClassifier_L
 from model import PointHistoryClassifier
 from model import MouseClassifier
 
@@ -67,14 +73,14 @@ def main():
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
         static_image_mode=use_static_image_mode,
-        max_num_hands=2,
+        max_num_hands=1,
         min_detection_confidence=min_detection_confidence,
         min_tracking_confidence=min_tracking_confidence,
     )
 
-    keypoint_classifier = KeyPointClassifier(invalid_value=8, score_th=0.4)
+    keypoint_classifier_R = KeyPointClassifier_R(invalid_value=8, score_th=0.4)
+    keypoint_classifier_L = KeyPointClassifier_L(invalid_value=8, score_th=0.4)
     mouse_classifier = MouseClassifier(invalid_value=2, score_th=0.4)
-
     point_history_classifier = PointHistoryClassifier()
 
     # Read labels ###########################################################
@@ -100,10 +106,16 @@ def main():
 
     # Finger gesture history ################################################
     finger_gesture_history = deque(maxlen=history_length)
+    mouse_id_history = deque(maxlen=40)
 
     # 靜態手勢最常出現參數初始化
     keypoint_length = 5
-    keypoint = deque(maxlen=keypoint_length)
+    keypoint_R = deque(maxlen=keypoint_length)
+    keypoint_L = deque(maxlen=keypoint_length)
+
+    # result deque
+    rest_length = 300
+    rest_result = deque(maxlen=rest_length)
 
     # ========= 使用者自訂姿勢、指令區 =========
     # time.sleep(0.5)
@@ -111,10 +123,11 @@ def main():
 
     # ========= 按鍵前置作業 =========
     mode = 0
-    presstime = time.time()
+    presstime = presstime_2 = presstime_3 = presstime_4 = resttime = time.time()
 
+    mode_change = False
     detect_mode = 1
-    what_mode = 'keyboard'
+    what_mode = 'mouse'
     landmark_list = 0
     pyautogui.PAUSE = 0
 
@@ -126,11 +139,19 @@ def main():
     clocX, clocY = 0, 0
     mousespeed = 1.5
     clicktime = time.time()
+    # 關閉 滑鼠移至角落啟動保護措施
+    pyautogui.FAILSAFE = False
 
-    # =========  =========
+    # ===============================
     i = 0
     finger_gesture_id = 0
-
+    ################
+    speech_0 = gTTS(text="休息模式", lang='zh-TW')
+    speech_0.save('rest.mp3')
+    speech_0 = gTTS(text="鍵盤模式", lang='zh-TW')
+    speech_0.save('keyboard.mp3')
+    speech = gTTS(text="滑鼠模式", lang='zh-TW')
+    speech.save('mouse.mp3')
     # ========= 主程式運作 =========
     while True:
         left_id = right_id = -1
@@ -151,6 +172,7 @@ def main():
 
         # Detection implementation 
         image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+        # image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
 
         image.flags.writeable = False
         results = hands.process(image)
@@ -172,24 +194,20 @@ def main():
                 # Write to the dataset file
                 logging_csv(number, mode, pre_processed_landmark_list, pre_processed_point_history_list)
 
-                # 靜態手勢資料預測
-                hand_sign_id = keypoint_classifier(pre_processed_landmark_list)
+                # 靜態手勢資料預測     
+                hand_sign_id_R = keypoint_classifier_R(pre_processed_landmark_list)
+                hand_sign_id_L = keypoint_classifier_L(pre_processed_landmark_list)
                 mouse_id = mouse_classifier(pre_processed_landmark_list)
                 # print(mouse_id)
-                # if handedness.classification[0].label[0:] == 'Left':
-                #     left_id = left_keypoint_classifier(pre_processed_landmark_list)
-                #
-                # else:
-                #     right_id = right_keypoint_classifier(pre_processed_landmark_list)
-
-                # 塞左右手手勢id
+                # print(mouse_id)
                 if handedness.classification[0].label[0:] == 'Left':
-                    left_id = hand_sign_id
-                else:
-                    right_id = hand_sign_id
+                    left_id = hand_sign_id_L
 
-                # 手比one 觸發動態資料抓取
-                if hand_sign_id == 1:
+                else:
+                    right_id = hand_sign_id_R
+
+                    # 手比one 觸發動態資料抓取
+                if right_id == 1 or left_id == 1:
                     point_history.append(landmark_list[8])
                 else:
                     point_history.append([0, 0])
@@ -199,18 +217,33 @@ def main():
                 point_history_len = len(pre_processed_point_history_list)
                 if point_history_len == (history_length * 2):
                     finger_gesture_id = point_history_classifier(pre_processed_point_history_list)
+                # print(finger_gesture_id) # 0 = stop, 1 = clockwise, 2 = counterclockwise, 3 = move,偵測出現的動態手勢
 
                 # 動態手勢最常出現id #########################################
                 # Calculates the gesture IDs in the latest detection
                 finger_gesture_history.append(finger_gesture_id)
                 most_common_fg_id = Counter(finger_gesture_history).most_common()
+
+                # 滑鼠的deque
+                mouse_id_history.append(mouse_id)
+                most_common_ms_id = Counter(mouse_id_history).most_common()
                 # print(f'finger_gesture_history = {finger_gesture_history}')
                 # print(f'most_common_fg_id = {most_common_fg_id}')
+                # print(f'most_common_ms_id = {most_common_ms_id}')
 
                 # 靜態手勢最常出現id #########################################
-                hand_gesture_id = hand_sign_id
-                keypoint.append(hand_gesture_id)
-                most_common_keypoint_id = Counter(keypoint).most_common()
+                hand_gesture_id = [right_id, left_id]
+                keypoint_R.append(hand_gesture_id[0])
+                keypoint_L.append(hand_gesture_id[1])
+                # print(keypoint_R) # deque右手的靜態id
+                # print(most_common_keypoint_id) # 右手靜態id最大
+                if right_id != -1:
+                    most_common_keypoint_id = Counter(keypoint_R).most_common()
+                else:
+                    most_common_keypoint_id = Counter(keypoint_L).most_common()
+
+                resttime = time.time()
+
                 # print(f'keypoint = {keypoint}')
                 # print(f'most_common_keypoint_id = {most_common_keypoint_id}')
 
@@ -232,73 +265,63 @@ def main():
         debug_image = draw_point_history(debug_image, point_history)
         debug_image = draw_info(debug_image, fps, mode, number)
 
-        '''
-        hand_id:
-            default=-1
-            paper=0
-            stone=1
-            finger=2
-            three=3
-            
-        detect_mode:
-            0 rest mode
-            1 keyboard mode
-            2 mouse mode
-        '''
-        # x1, y1 = landmark_list[8][0], landmark_list[8][1]
-
+        # 偵測是否有手勢 #########################################
         if left_id + right_id > -2:
-            if time.time() - presstime > 1:
-                # print(left_id, right_id)
-                # change mode
-                if left_id == 3 or right_id == 3:
-                    print('change mode')
+            # change mode Gesture six changes to the different mode
+            if most_common_ms_id[0][0] == 3 and most_common_ms_id[0][1] == 40:
+                if time.time() - presstime > 2:
+                    # playsound('C:\Windows\Media\Windows Unlock.wav', block=False)
                     detect_mode = (detect_mode + 1) % 3
-                    if detect_mode == 0: what_mode = 'Rest'
-                    if detect_mode == 1: what_mode = 'Keyboard'
-                    if detect_mode == 2: what_mode = 'Mouse'
-                    print(f'now mode is {what_mode}')
-                    presstime = time.time() + 1
+                    mode_change = True
+                    presstime = time.time()
+                    # presstime_4 = time.time()
 
                 # control keyboard
-
-                elif detect_mode == 1:
+            elif detect_mode == 2:
+                if time.time() - presstime > 1:
+                    # if time.time() - presstime_2 > 1:
+                    # if time.time() - presstime_4 > 1:
                     # 靜態手勢控制
-                    control_keyboard(left_id, -1, right_id, 2, 'K', keyboard_TF=True, print_TF=False)
-                    # control_keyboard(left_id, -1, right_id, 3, 'F', keyboard_TF=True, print_TF=True)
-                    # control_keyboard(left_id, -1, right_id, 0, 'M', keyboard_TF=True, print_TF=True)
-                    control_keyboard(left_id, -1, right_id, 9, 'C', keyboard_TF=True, print_TF=False)
-                    control_keyboard(left_id, -1, right_id, 5, 'up', keyboard_TF=True, print_TF=False)
-                    control_keyboard(left_id, -1, right_id, 6, 'down', keyboard_TF=True, print_TF=False)
+                    control_keyboard(most_common_keypoint_id, 2, 'K', keyboard_TF=True, print_TF=False)
+                    control_keyboard(most_common_keypoint_id, 0, 'right', keyboard_TF=True, print_TF=False)
+                    control_keyboard(most_common_keypoint_id, 7, 'left', keyboard_TF=True, print_TF=False)
+                    control_keyboard(most_common_keypoint_id, 9, 'C', keyboard_TF=True, print_TF=False)
+                    control_keyboard(most_common_keypoint_id, 5, 'up', keyboard_TF=True, print_TF=False)
+                    control_keyboard(most_common_keypoint_id, 6, 'down', keyboard_TF=True, print_TF=False)
+                    # presstime_2 = time.time()
+                    presstime = time.time()
+                    # print(time.time() - presstime_4)
 
                     # 動態手勢控制
-                    # if most_common_fg_id[0][0] in [1, 3]:
-                    #     if time.time() - presstime > 1:
-                    #         pyautogui.press('L')
-                    #         print('快轉10秒(L)')J
-                    #
-                    # elif most_common_fg_id[0][0] in [2, 4]:
-                    #     if time.time() - presstime > 1:
-                    #         pyautogui.press('J')
-                    #         print('倒轉10秒(J)')
+                if most_common_fg_id[0][0] == 1 and most_common_fg_id[0][1] > 12:
+                    if time.time() - presstime_3 > 1.5:
+                        # pyautogui.press(['shift', '>'])
+                        pyautogui.hotkey('shift', '>')
+                        print('speed up')
+                        presstime_3 = time.time()
+                elif most_common_fg_id[0][0] == 2 and most_common_fg_id[0][1] > 12:
+                    if time.time() - presstime_3 > 1.5:
+                        # pyautogui.press(['shift', '<'])
+                        pyautogui.hotkey('shift', '<')
+                        print('speed down')
+                        presstime_3 = time.time()
 
-                    presstime = time.time()
+                    # print(most_common_fg_id)
+                    # print(most_common_fg_id[0][0], most_common_fg_id[0][1])
+                    # print(time.time() - presstime_3 > 1)
 
-            if detect_mode == 2:
+            elif detect_mode == 1:
                 if mouse_id == 0:  # Point gesture
-                    # print(landmark_list[8]) #index finger
-                    # print(landmark_list[12]) #middle finger
                     x1, y1 = landmark_list[8]
-                    x2, y2 = landmark_list[12]
-                    # cv.rectangle(debug_image, (frameR, frameR), (cap_width - frameR, cap_height - frameR),
-                    #              (255, 0, 255), 2)
-                    cv.rectangle(debug_image, (50, 50), (cap_width - 50, cap_height - 100),
+                    cv.rectangle(debug_image, (50, 30), (cap_width - 50, cap_height - 170),
                                  (255, 0, 255), 2)
-                    # x3 = np.interp(x1, (frameR, cap_width - frameR), (0, wScr))
-                    # y3 = np.interp(y1, (frameR, cap_height - frameR), (0, hScr))
-                    x3 = np.interp(x1, (50*mousespeed, (cap_width - 50)/mousespeed), (0, wScr))
-                    y3 = np.interp(y1, (50*mousespeed, (cap_height - 50)/mousespeed), (0, hScr))
+                    # 座標轉換
+                    # x軸: 鏡頭上50~(cap_width - 50)轉至螢幕寬0~wScr
+                    # y軸: 鏡頭上30~(cap_height - 170)轉至螢幕長0~hScr
+                    x3 = np.interp(x1, (50, (cap_width - 50)), (0, wScr))
+                    y3 = np.interp(y1, (30, (cap_height - 170)), (0, hScr))
                     # print(x3, y3)
+
                     # 6. Smoothen Values
                     clocX = plocX + (x3 - plocX) / smoothening
                     clocY = plocY + (y3 - plocY) / smoothening
@@ -307,34 +330,54 @@ def main():
                     cv.circle(debug_image, (x1, y1), 15, (255, 0, 255), cv.FILLED)
                     plocX, plocY = clocX, clocY
 
-                if left_id == 2 or right_id == 2:
+                elif mouse_id == 1:
                     length, img, lineInfo = findDistance(landmark_list[8], landmark_list[12], debug_image)
-                    # print(length)KKKK
 
                     # 10. Click mouse if distance short
-                    # print(time.time() - clicktime)
-
                     if time.time() - clicktime > 0.5:
-                        if length < 40:
-                            cv.circle(img, (lineInfo[4], lineInfo[5]),
-                                      15, (0, 255, 0), cv.FILLED)
-                            pyautogui.click()
-                            print('click')
-                            clicktime = time.time()
+                        # if length < 40:
+                        #     cv.circle(img, (lineInfo[4], lineInfo[5]),15, (0, 255, 0), cv.FILLED)
+                        pyautogui.click()
+                        # print('click')
+                        clicktime = time.time()
 
+                if most_common_keypoint_id[0][0] == 5 and most_common_keypoint_id[0][1] == 5:
+                    pyautogui.scroll(-20)
 
-                        # if length > 70:
-                        #     cv.circle(img, (lineInfo[4], lineInfo[5]),
-                        #               15, (0, 255, 0), cv.FILLED)
-                            # pyautogui.click(clicks=2)
-                            # print('click*2')
-                            # clicktime = time.time()
+                if most_common_keypoint_id[0][0] == 6 and most_common_keypoint_id[0][1] == 5:
+                    pyautogui.scroll(20)
 
-                if left_id == 5 or right_id == 5:
-                    pyautogui.scroll(30)
+                if most_common_keypoint_id[0][0] == 0 and most_common_keypoint_id[0][1] == 5:
+                    if time.time() - clicktime > 1.5:
+                        pyautogui.click(clicks=2)
+                        clicktime = time.time()
 
-                if left_id == 6 or right_id == 6:
-                    pyautogui.scroll(-30)
+                if most_common_keypoint_id[0][0] == 9 and most_common_keypoint_id[0][1] == 5:
+                    if time.time() - clicktime > 2:
+                        pyautogui.hotkey('alt', 'left')
+                        clicktime = time.time()
+
+        #### rest_result ######################
+        if time.time() - resttime > 10:
+            if detect_mode != 0:
+                detect_mode = 0
+                mode_change = True
+
+        #### 檢查模式有沒有更動 ######################
+        if mode_change:
+            if detect_mode == 0:
+                what_mode = 'Rest'
+                playsound('rest.mp3', block=False)
+            elif detect_mode == 2:
+                what_mode = 'Keyboard'
+                playsound('keyboard.mp3', block=False)
+            elif detect_mode == 1:
+                what_mode = 'Mouse'
+                playsound('mouse.mp3', block=False)
+
+            mode_change = 0
+            print('Mode has changed')
+            print(f'Current mode => {what_mode}')
 
         cv.putText(debug_image, what_mode, (400, 30), cv.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 4, cv.LINE_AA)
         # Screen reflection ###################################JL##########################
@@ -636,24 +679,25 @@ def draw_info(image, fps, mode, number):
     return image
 
 
-def control_keyboard(left_id, select_left_id, right_id, select_right_id, command, keyboard_TF=True, print_TF=True):
-    if left_id == select_left_id and right_id == select_right_id:
+def control_keyboard(most_common_keypoint_id, select_right_id, command, keyboard_TF=True, print_TF=True):
+    if most_common_keypoint_id[0][0] == select_right_id and most_common_keypoint_id[0][1] == 5:
         if keyboard_TF:
             pyautogui.press(command)
         if print_TF:
             print(command)
-    elif select_left_id == -1:
-        if right_id == -1 and left_id == select_right_id:
-            if keyboard_TF:
-                pyautogui.press(command)
-            if print_TF:
-                print(command)
-    elif select_right_id == -1:
-        if left_id == -1 and right_id == select_left_id:
-            if keyboard_TF:
-                pyautogui.press(command)
-            if print_TF:
-                print(command)
+    # print(most_common_keypoint_id)
+    # elif select_left_id == -1:
+    #     if right_id == -1 and left_id == select_right_id:
+    #         if keyboard_TF:
+    #             pyautogui.press(command)
+    #         if print_TF:
+    #             print(command)
+    # elif select_right_id == -1:
+    #     if left_id == -1 and right_id == select_left_id:
+    #         if keyboard_TF:
+    #             pyautogui.press(command)
+    #         if print_TF:
+    #             print(command)
 
 
 def pick_gesture_command():
