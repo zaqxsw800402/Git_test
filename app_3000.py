@@ -106,16 +106,12 @@ def main():
 
     # Finger gesture history ################################################
     finger_gesture_history = deque(maxlen=history_length)
-    mouse_id_history = deque(maxlen=40)
+    mouse_id_history = deque(maxlen=30)
 
     # 靜態手勢最常出現參數初始化
     keypoint_length = 5
     keypoint_R = deque(maxlen=keypoint_length)
     keypoint_L = deque(maxlen=keypoint_length)
-
-    # result deque
-    rest_length = 300
-    rest_result = deque(maxlen=rest_length)
 
     # ========= 使用者自訂姿勢、指令區 =========
     # time.sleep(0.5)
@@ -137,7 +133,6 @@ def main():
     smoothening = 7
     plocX, plocY = 0, 0
     clocX, clocY = 0, 0
-    mousespeed = 1.5
     clicktime = time.time()
     # 關閉 滑鼠移至角落啟動保護措施
     pyautogui.FAILSAFE = False
@@ -205,7 +200,7 @@ def main():
                     right_id = hand_sign_id_R
 
                     # 手比one 觸發動態資料抓取
-                if right_id == 1 or left_id == 1:
+                if mouse_id == 0:
                     point_history.append(landmark_list[8])
                 else:
                     point_history.append([0, 0])
@@ -267,7 +262,7 @@ def main():
         # 偵測是否有手勢 #########################################
         if left_id + right_id + mouse_id > -3:
             # change mode Gesture six changes to the different mode
-            if most_common_ms_id[0][0] == 3 and most_common_ms_id[0][1] == 40:
+            if most_common_ms_id[0][0] == 3 and most_common_ms_id[0][1] == 30:
                 if time.time() - presstime > 2:
                     # playsound('C:\Windows\Media\Windows Unlock.wav', block=False)
                     detect_mode = (detect_mode + 1) % 3
@@ -288,7 +283,7 @@ def main():
                     presstime = time.time()
 
                     # 動態手勢控制
-                if most_common_fg_id[0][0] == 1 and most_common_fg_id[0][1] > 12:
+                if most_common_fg_id[0][0] == 1 and most_common_fg_id[0][1] > 10:
                     if time.time() - presstime_3 > 1.5:
                         pyautogui.hotkey('shift', '>')
                         print('speed up')
