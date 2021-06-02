@@ -108,24 +108,23 @@ def main():
     finger_gesture_history = deque(maxlen=history_length)
     mouse_id_history = deque(maxlen=30)
 
-    # 靜態手勢最常出現參數初始化
+    # 靜態手勢最常出現參數初始化 =========
     keypoint_length = 5
     keypoint_R = deque(maxlen=keypoint_length)
     keypoint_L = deque(maxlen=keypoint_length)
 
     # ========= 使用者自訂姿勢、指令區 =========
-    # time.sleep(0.5)
-    # keepadd = False
 
     # ========= 按鍵前置作業 =========
     mode = 0
-    presstime = presstime_2 = presstime_3 = presstime_4 = resttime = time.time()
+    presstime = presstime_3  = resttime = time.time()
 
     mode_change = False
     detect_mode = 1
     what_mode = 'mouse'
     landmark_list = 0
     pyautogui.PAUSE = 0
+    i = 0
 
     # ========= 滑鼠前置作業 =========
     wScr, hScr = pyautogui.size()
@@ -133,13 +132,10 @@ def main():
     smoothening = 7
     plocX, plocY = 0, 0
     clocX, clocY = 0, 0
-    clicktime = time.time()
     # 關閉 滑鼠移至角落啟動保護措施
     pyautogui.FAILSAFE = False
 
-    # ===============================
-
-    # google 小姐
+    # ========= google 小姐 =========
     speech_0 = gTTS(text="休息模式", lang='zh-TW')
     speech_0.save('rest.mp3')
     speech_0 = gTTS(text="鍵盤模式", lang='zh-TW')
@@ -268,7 +264,6 @@ def main():
                     detect_mode = (detect_mode + 1) % 3
                     mode_change = True
                     presstime = time.time()
-                    # presstime_4 = time.time()
 
                 # control keyboard
             elif detect_mode == 2:
@@ -295,6 +290,7 @@ def main():
                         print('speed down')
                         presstime_3 = time.time()
 
+
             elif detect_mode == 1:
                 if mouse_id == 0:  # Point gesture
                     x1, y1 = landmark_list[8]
@@ -319,12 +315,12 @@ def main():
                     length, img, lineInfo = findDistance(landmark_list[8], landmark_list[12], debug_image)
 
                     # 10. Click mouse if distance short
-                    if time.time() - clicktime > 0.5:
+                    if time.time() - presstime > 0.5:
                         # if length < 40:
                         #     cv.circle(img, (lineInfo[4], lineInfo[5]),15, (0, 255, 0), cv.FILLED)
                         pyautogui.click()
                         # print('click')
-                        clicktime = time.time()
+                        presstime = time.time()
 
                 if most_common_keypoint_id[0][0] == 5 and most_common_keypoint_id[0][1] == 5:
                     pyautogui.scroll(-20)
@@ -333,16 +329,25 @@ def main():
                     pyautogui.scroll(20)
 
                 if most_common_keypoint_id[0][0] == 0 and most_common_keypoint_id[0][1] == 5:
-                    if time.time() - clicktime > 1.5:
+                    if time.time() - presstime > 1.5:
                         pyautogui.click(clicks=2)
-                        clicktime = time.time()
+                        presstime = time.time()
 
                 if most_common_keypoint_id[0][0] == 9 and most_common_keypoint_id[0][1] == 5:
-                    if time.time() - clicktime > 2:
+                    if time.time() - presstime > 2:
                         pyautogui.hotkey('alt', 'left')
-                        clicktime = time.time()
+                        presstime = time.time()
+            # 比讚 從休息模式 換成 鍵盤模式
+            elif detect_mode == 0:
+                if most_common_keypoint_id[0][0] == 5 and most_common_keypoint_id[0][1] == 5:
+                    i += 1
+                    if i == 1 or time.time() - presstime > 3: presstime = time.time()
+                    elif time.time() - presstime > 2:
+                        detect_mode = 2
+                        mode_change = True
+                        i = 0
 
-        # rest_result =========================
+        # 距離上次監測到手的時間大於10秒、切回休息模式 =========================
         if time.time() - resttime > 10:
             if detect_mode != 0:
                 detect_mode = 0
