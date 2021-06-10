@@ -7,7 +7,8 @@ import tensorflow as tf
 class MouseClassifier(object):
     def __init__(
             self,
-            model_path='model/mouse_classifier/mouse_classifier_final1.tflite',
+            model_path='model/mouse_classifier/m_new_5.tflite',
+            # model_path='model/mouse_classifier/mouse_classifier_final1.tflite',
             num_threads=1,
             score_th=0.5,
             invalid_value=2,
@@ -36,13 +37,8 @@ class MouseClassifier(object):
 
         result = self.interpreter.get_tensor(output_details_tensor_index)
         # print(result)
-        # _index = 0
-        # _id = ['One', 'Scissor', 'None','six']
-        # for _ in result[:][0]:
-        #     if _ > 0.1:
-        #         print(f'{_id[_index]},{_:.2f}', end=' ')
-        #     _index += 1
-        # print('')
+
+        # _inK
 
         result_index = np.argmax(np.squeeze(result))
         # print(f'\n Maxprob_id: {result_index}')
