@@ -1,2 +1,2 @@
 # all_you_need
-little projects are from datacamp's project
+little projects are what I have done in datacamp's project
