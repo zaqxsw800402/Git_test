@@ -1,5 +1,3 @@
-# README
-
 # YT_gesture_control
 
 ### 簡介
@@ -8,7 +6,7 @@
 
 ### 流程圖
 
-![README%2072dc6f27ee414200ba37ad633a3f41ad/Untitled.png](README%2072dc6f27ee414200ba37ad633a3f41ad/Untitled.png)
+![image](https://github.com/zaqxsw800402/YT_gesture_control/blob/main/picture/flow.png?raw=true)
 
 ### 模型訓練
 
