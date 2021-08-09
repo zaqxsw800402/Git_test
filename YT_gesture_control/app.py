@@ -1,23 +1,19 @@
+import sys
 from collections import Counter
 from collections import deque
 
 import mediapipe as mp
+from PyQt5.Qt import Qt
+from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from utils import CvFpsCalc
-
+from model import MouseClassifier
 # models
 from model import PointHistoryClassifier
-from model import MouseClassifier
-
-from func import *
-
-import sys
-from PyQt5.Qt import Qt
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import QCursor
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QMainWindow
+from utils import CvFpsCalc
+from utils.func import *
 
 
 class MainWindow(QMainWindow):
@@ -434,7 +430,7 @@ class WorkThread(QThread):
                             mode_change = True
                             i = 0
 
-            # 距離上次監測到手的時間大於10秒、切回休息模式 =========================
+            # 距離上次監測到手的時間大於30秒、切回休息模式 =========================
             if time.time() - resttime > 30:
                 if detect_mode != 0:
                     detect_mode = 0
