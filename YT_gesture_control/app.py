@@ -195,9 +195,6 @@ class WorkThread(QThread):
         mouse_id_history = deque(maxlen=30)
         m_id_history = deque(maxlen=6)
 
-        # 靜態手勢最常出現參數初始化 =========
-
-        # ========= 使用者自訂姿勢、指令區 =========
 
         # ========= 按鍵前置作業 =========
         mode = 0
